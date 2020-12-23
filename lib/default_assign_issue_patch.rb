@@ -6,9 +6,9 @@ module DefaultAssignIssuePatch
 
     # Same as typing in the class
     base.class_eval do
-      unloadable # Send unloadable so it will not be unloaded in development
+      unloadable
 
-      before_save :assign_default_assignee
+      before_create :assign_default_assignee
     end
   end
 
@@ -16,11 +16,20 @@ module DefaultAssignIssuePatch
     # If the issue isn't assigned to someone and a default assignee
     # is set, set it.
     def assign_default_assignee
+      return  if not self.assigned_to.nil?
       default_assignee = self.project.default_assignee
-      unless default_assignee.blank?
-        if self.project.assignable_users.include?(default_assignee)
-          self.assigned_to ||= self.project.default_assignee
+      if default_assignee.blank?
+        self_assignment =
+          Setting.plugin_redmine_default_assign['self_assignment'] || 'false'
+        self_assignment = (self_assignment == 'true')
+        if self_assignment
+          default_assignee = User.current
+        else
+          return
         end
+      end
+      if self.project.assignable_users.include?(default_assignee)
+        self.assigned_to = default_assignee
       end
     end
   end
